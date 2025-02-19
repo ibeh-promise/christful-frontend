@@ -2,6 +2,8 @@ import axios from "axios";
 import { Alert } from "react-native";
 import { router, useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Cloudinary } from "@cloudinary/url-gen";
+// import { upload } from "@cloudinary/url-gen";
 
 const useApi = () => {
   const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -125,33 +127,6 @@ const useApi = () => {
       console.log(error.response);
     }
   };
-  const post = async (content, media_url, setLoading) => {
-    if (content || media_url) {
-      try {
-        setLoading(true);
-        const token = await AsyncStorage.getItem("token");
-        const response = await axios.post(
-          `https://christful-server.vercel.app/post`,
-          { content, media_url },
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-        console.log(response.data.message);
-        Alert.alert("Post Sucessful", response.data.message);
-        router.back();
-        return response.data.message;
-      } catch (error) {
-        console.log(error.response);
-      } finally {
-        setLoading(false);
-      }
-    } else {
-      Alert.alert("Post Error", "Try typing or uploading before submission");
-    }
-  };
 
   const getAllPosts = async (setLoading, setError) => {
     try {
@@ -167,7 +142,7 @@ const useApi = () => {
       );
       console.log(response.data.data);
       if (response.data.data) setLoading(false);
-      if (response.status == 401) {
+      if (response.data.data.message == "Invalid token") {
         await AsyncStorage.removeItem("token");
         await router.replace("/auth/login");
       }
@@ -210,7 +185,10 @@ const useApi = () => {
       );
 
       const { nudity } = imageResponse.data;
-      if (nudity.sexual_activity > 0.9) {
+      if (
+        nudity.sexual_activity > 0.9 ||
+        nudity.suggestive_classes.bikini >= 0.9
+      ) {
         Alert.alert("Warning", "Your image contains NSFW content.");
         setIsContentSafe(false);
         console.log(imageResponse.data);
@@ -225,15 +203,76 @@ const useApi = () => {
       Alert.alert("Error", "Failed to check image content.");
     }
   };
+  const createPost = async (content, media_url, setLoading) => {
+    if (content || media_url) {
+      try {
+        setLoading(true);
+        console.log(media_url);
+        const token = await AsyncStorage.getItem("token");
+        const response = await axios.post(
+          `https://christful-server.vercel.app/post`,
+          { content, media_url },
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+        console.log(response.data.message);
+        Alert.alert("Post Sucessful", response.data.message);
+        router.back();
+        return response.data.message;
+      } catch (error) {
+        console.log(error.response);
+      } finally {
+        setLoading(false);
+      }
+    } else {
+      Alert.alert("Post Error", "Try typing or uploading before submission");
+    }
+  };
+
+  const mediaUpload = async (media, setMedia_url, setLoading) => {
+    try {
+      setLoading(true);
+
+      const formData = new FormData();
+      formData.append("file", {
+        uri: media,
+        type: "image/jpeg", // Ensure correct MIME type
+        name: "upload.jpg",
+      });
+      formData.append("upload_preset", "medias");
+
+      const response = await axios.post(
+        "https://api.cloudinary.com/v1_1/dskxvlrhq/image/upload", // Correct endpoint
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        }
+      );
+
+      console.log("Upload Successful:", response.data);
+      setMedia_url(response.data.url);
+      return response.data.secure_url; // URL of uploaded media
+    } catch (error) {
+      console.error("Upload Error:", error.response?.data || error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return {
     signup,
     login,
     logout,
     profile,
-    post,
+    createPost,
     getAllPosts,
     checkImageForNSFW,
+    mediaUpload,
   };
 };
 

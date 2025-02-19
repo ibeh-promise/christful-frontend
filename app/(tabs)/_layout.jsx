@@ -11,6 +11,12 @@ export default function TabLayout() {
 
   const segments = useSegments();
   const currentRoute = segments[segments.length - 1];
+
+  const handleFetch = async () => {
+    const result = await getAllPosts(setLoading, setError);
+    setResponse(result);
+    console.log("result", result);
+  };
   return (
     <Tabs
       screenOptions={{
@@ -29,10 +35,12 @@ export default function TabLayout() {
           headerShadowVisible: true,
           headerLeft: () => (
             <View style={styles.logoContainer}>
-              <Image
-                source={require("@/assets/images/logo.png")}
-                style={styles.img}
-              />
+              <TouchableOpacity onPress={handleFetch}>
+                <Image
+                  source={require("@/assets/images/logo.png")}
+                  style={styles.img}
+                />
+              </TouchableOpacity>
             </View>
           ),
           headerRight: () => (

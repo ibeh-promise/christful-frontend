@@ -25,10 +25,29 @@ export default function Page() {
   const [media_url, setMedia_url] = useState("");
   const [isImageSafe, setIsImageSafe] = useState(false);
   const [image, setImage] = useState(null);
-  const { post, checkImageForNSFW } = useApi();
+  const { createPost, mediaUpload, checkImageForNSFW } = useApi();
 
-  const handlePost = () => {
-    const response = post(content, media_url, setLoading);
+  const { width, height } = Dimensions.get("window");
+
+  const handlePost = async () => {
+    try {
+      // Upload media first
+      const uploadedMediaUrl = await mediaUpload(
+        media_url,
+        setMedia_url,
+        setLoading
+      );
+
+      // Only call createPost if the media upload was successful
+      if (uploadedMediaUrl) {
+        await createPost(content, uploadedMediaUrl, setMedia_url, setLoading);
+      } else {
+        Alert.alert("Error", "Media upload failed. Post was not created.");
+      }
+    } catch (error) {
+      console.error("Error in handlePost:", error);
+      Alert.alert("Error", "An error occurred while creating the post.");
+    }
   };
 
   const pickImage = async () => {
@@ -36,7 +55,7 @@ export default function Page() {
     let result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images", "videos"],
       allowsEditing: true,
-      aspect: [4, 3],
+      aspect: [width + 50, height],
       quality: 1,
       base64: true,
     });
@@ -45,6 +64,7 @@ export default function Page() {
 
     if (!result.canceled) {
       setImage(result.assets[0].uri);
+      setMedia_url(result.assets[0].uri);
     }
 
     await checkImageForNSFW(result.assets[0].base64, setIsImageSafe);

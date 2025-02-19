@@ -38,7 +38,7 @@ export default function Posts({ data }) {
             )}
             <View>
               <Text style={{ fontWeight: "700" }}>Adamu samuel</Text>
-              <Text>5hrs ago</Text>
+              <Text>{data.created_at.split("T")[0]}</Text>
             </View>
           </View>
           <View
@@ -62,6 +62,10 @@ export default function Posts({ data }) {
         <Text style={styles.postText} numberOfLines={12}>
           {data?.content}
         </Text>
+
+        {data.media_url && (
+          <Image source={{ uri: data?.media_url }} style={styles.image} />
+        )}
         <View>
           <View
             style={{
@@ -152,5 +156,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     marginTop: 20,
+  },
+  image: {
+    width: "100%",
+    height: 400,
   },
 });
