@@ -37,7 +37,9 @@ export default function Posts({ data }) {
               />
             )}
             <View>
-              <Text style={{ fontWeight: "700" }}>Adamu samuel</Text>
+              <Text style={{ fontWeight: "700" }}>
+                {data.firstname} {data.lastname}
+              </Text>
               <Text>{data.created_at.split("T")[0]}</Text>
             </View>
           </View>
@@ -73,12 +75,12 @@ export default function Posts({ data }) {
               alignItems: "flex-end",
             }}
           >
-            <View style={{ flexDirection: "row", width: 40 }}>
+            {/* <View style={{ flexDirection: "row", width: 40 }}>
               <FontAwesome5 name="eye" size={14} />
               <Text style={{ fontWeight: "400", fontSize: 12, marginLeft: 5 }}>
                 1.5k
               </Text>
-            </View>
+            </View> */}
           </View>
         </View>
         <View
@@ -129,8 +131,9 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   postText: {
-    fontSize: 12,
+    fontSize: 15,
     fontWeight: "600",
+    marginBottom: 20,
   },
   profileImage: {
     width: 50,

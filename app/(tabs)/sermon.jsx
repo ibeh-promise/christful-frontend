@@ -10,8 +10,9 @@ import {
   Dimensions,
   FlatList,
   ActivityIndicator,
+  RefreshControl,
 } from "react-native";
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import Posts from "@/components/Posts";
 import { FontAwesome5, FontAwesome6, MaterialIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -28,6 +29,7 @@ import Animated, {
 export default function Page() {
   const { getAllPosts } = useApi();
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(true);
   const [response, setResponse] = useState([]);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -51,6 +53,13 @@ export default function Page() {
     }
   };
 
+  const onRefresh = React.useCallback(() => {
+    setRefreshing(true);
+    setTimeout(() => {
+      handleFetch();
+      setRefreshing(false);
+    }, 2000);
+  }, []);
   if (loading) {
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
@@ -58,20 +67,19 @@ export default function Page() {
       </View>
     );
   }
-  if (error) {
-    return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-        <MaterialIcons name="signal-wifi-connected-no-internet-4" size={100} />
-        <TouchableOpacity style={styles.errorButton} onPress={handleFetch}>
-          <Text style={styles.errorButtonText}>Refresh</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
+  // if (error) {
+  //   return (
+  //     <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+  //       <MaterialIcons name="signal-wifi-connected-no-internet-4" size={100} />
+  //       <TouchableOpacity style={styles.errorButton} onPress={handleFetch}>
+  //         <Text style={styles.errorButtonText}>Refresh</Text>
+  //       </TouchableOpacity>
+  //     </View>
+  //   );
+  // }
 
   return (
     <View style={styles.container}>
-      {/* <Text>Welcome to ChristFul App {response?.firstname}</Text> */}
       <View
         style={{
           position: "absolute",
@@ -155,6 +163,9 @@ export default function Page() {
       <FlatList
         data={response}
         renderItem={({ item }) => <Posts data={item} />}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
       />
     </View>
   );

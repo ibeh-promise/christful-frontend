@@ -10,6 +10,7 @@ import {
   Modal,
   ActivityIndicator,
   Image,
+  Video,
   ScrollView,
 } from "react-native";
 import { Colors } from "@/constants/Colors";
@@ -17,17 +18,20 @@ import { FontAwesome5, FontAwesome6, MaterialIcons } from "@expo/vector-icons";
 import useApi from "@/hooks/useApi";
 import { useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
+import { useVideoPlayer, VideoPlayer, VideoView } from "expo-video";
 
 export default function Page() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
   const [content, setContent] = useState("");
   const [media_url, setMedia_url] = useState("");
   const [isImageSafe, setIsImageSafe] = useState(false);
+  const [isVideoSafe, setIsVideoSafe] = useState(false);
   const [image, setImage] = useState(null);
-  const { createPost, mediaUpload, checkImageForNSFW } = useApi();
-
-  const { width, height } = Dimensions.get("window");
+  const [video, setVideo] = useState(null);
+  const { createPost, mediaUpload, checkMediaForNSFW, getAllPosts, uriToBlob } =
+    useApi();
 
   const handlePost = async () => {
     try {
@@ -41,6 +45,8 @@ export default function Page() {
       // Only call createPost if the media upload was successful
       if (uploadedMediaUrl) {
         await createPost(content, uploadedMediaUrl, setMedia_url, setLoading);
+        await getAllPosts(setLoading, setError);
+        router.back();
       } else {
         Alert.alert("Error", "Media upload failed. Post was not created.");
       }
@@ -53,22 +59,47 @@ export default function Page() {
   const pickImage = async () => {
     // No permissions request is necessary for launching the image library
     let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images", "videos"],
+      mediaTypes: ["images"],
       allowsEditing: true,
-      aspect: [width + 50, height],
       quality: 1,
-      base64: true,
+      // base64: true,
     });
 
     console.log(result);
 
     if (!result.canceled) {
       setImage(result.assets[0].uri);
+      setVideo(null);
       setMedia_url(result.assets[0].uri);
     }
 
-    await checkImageForNSFW(result.assets[0].base64, setIsImageSafe);
+    await checkMediaForNSFW(result.assets[0].uri, setIsImageSafe, image);
   };
+  const pickVideo = async () => {
+    // No permissions request is necessary for launching the image library
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["videos"],
+      allowsEditing: true,
+      quality: 1,
+      // base64: true,
+    });
+
+    console.log(result);
+
+    if (!result.canceled) {
+      const blob = await uriToBlob(result.assets[0].uri);
+      console.log("blob", blob.data.__collector);
+      setVideo(result.assets[0].uri);
+      setImage(null);
+      setMedia_url(blob.data.__collector);
+    }
+
+    await checkMediaForNSFW(result.assets[0].uri, setIsVideoSafe, image);
+  };
+
+  const player = useVideoPlayer(video, (player) => {
+    player.pause();
+  });
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -103,7 +134,17 @@ export default function Page() {
       <View style={styles.bottomContainer}>
         <View style={styles.mediaOverviewContainer}>
           {isImageSafe && (
-            <Image source={{ uri: image }} style={styles.image} />
+            <Image source={{ uri: image }} style={styles.media} />
+          )}
+        </View>
+        <View style={styles.mediaOverviewContainer}>
+          {isVideoSafe && (
+            <VideoView
+              style={styles.media}
+              player={player}
+              allowsFullscreen
+              allowsPictureInPicture
+            />
           )}
         </View>
         <View style={styles.bottomContainerUploadsOptions}>
@@ -111,7 +152,7 @@ export default function Page() {
             <FontAwesome5 name="image" color={Colors.light.icon} size={20} />
             <Text style={styles.uploadOptionsText}>Photo</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.uploadOptions}>
+          <TouchableOpacity style={styles.uploadOptions} onPress={pickVideo}>
             <MaterialIcons
               name="smart-display"
               color={Colors.light.icon}
@@ -190,7 +231,7 @@ const styles = StyleSheet.create({
     width: 100,
     paddingLeft: 10,
   },
-  image: {
+  media: {
     width: 100,
     height: 100,
   },

@@ -132,6 +132,7 @@ const useApi = () => {
     try {
       setLoading(true);
       const token = await AsyncStorage.getItem("token");
+
       const response = await axios.get(
         `https://christful-server.vercel.app/getAllPosts`,
         {
@@ -140,14 +141,18 @@ const useApi = () => {
           },
         }
       );
-      console.log(response.data.data);
-      if (response.data.data) setLoading(false);
-      if (response.data.data.message == "Invalid token") {
+
+      console.log(response.data);
+
+      // Check for invalid token in response
+      if (response.data.message === "Invalid token") {
         await AsyncStorage.removeItem("token");
-        await router.replace("/auth/login");
+        router.replace("/auth/login"); // Ensure router is passed as a parameter
+        return; // Stop further execution
       }
+
       setError(false);
-      return response.data.data;
+      return response.data.data ? response.data.data.reverse() : [];
     } catch (error) {
       console.log(error.response);
       setError(true);
@@ -157,52 +162,61 @@ const useApi = () => {
     }
   };
 
-  const checkImageForNSFW = async (base64Image, setIsContentSafe) => {
+  const checkMediaForNSFW = async (mediaUri, setIsContentSafe, isImage) => {
     try {
-      // Create FormData object
       let formData = new FormData();
-
-      // Convert Base64 to Blob (Required for React Native)
-      let blob = {
-        uri: `data:image/jpeg;base64,${base64Image}`,
-        name: "image.jpg",
-        type: "image/jpeg",
+      const url = isImage
+        ? "https://api.sightengine.com/1.0/video/check-workflow-sync.json"
+        : "https://api.sightengine.com/1.0/check.json";
+      // Append media file (Use actual file path, NOT base64)
+      let file = {
+        uri: mediaUri, // Direct URI from image picker
+        name: isImage ? "image.jpg" : "video.mp4",
+        type: isImage ? "image/jpeg" : "video/mp4",
       };
 
-      formData.append("media", blob);
+      formData.append("media", file);
       formData.append("models", "nudity-2.1");
+      !isImage && formData.append("workflow", process.env.EXPO_PUBLIC_WORKFLOW);
       formData.append("api_user", "1030119388");
       formData.append("api_secret", "4qfzZfQ6GsFzMsq9NcktWnCovezM2a8t");
 
-      const imageResponse = await axios.post(
-        "https://api.sightengine.com/1.0/check.json",
+      // Make the API request
+      const response = await axios.post(
+        "https://api.sightengine.com/1.0/video/check-workflow-sync.json",
         formData,
         {
           headers: {
-            "Content-Type": "multipart/form-data", // Auto-handled by Axios
+            "Content-Type": "multipart/form-data",
           },
         }
       );
 
-      const { nudity } = imageResponse.data;
+      // Handle API response
+      console.log("response of media", process.env.EXPO_PUBLIC_WORKFLOW);
+      console.log("response of media", response.data);
+      const { nudity } = response.data;
       if (
         nudity.sexual_activity > 0.9 ||
         nudity.suggestive_classes.bikini >= 0.9
       ) {
-        Alert.alert("Warning", "Your image contains NSFW content.");
+        Alert.alert("Warning", "Your media contains NSFW content.");
         setIsContentSafe(false);
-        console.log(imageResponse.data);
+        console.log(response.data);
       } else {
-        Alert.alert("Success", "Image is safe.");
+        Alert.alert("Success", "Media is safe.");
         setIsContentSafe(true);
-        console.log(imageResponse.data);
+        console.log(response.data);
       }
     } catch (error) {
-      console.log(error.response ? error.response.data : error.message);
-      console.log(error);
-      Alert.alert("Error", "Failed to check image content.");
+      console.error(
+        "Error:",
+        error.response ? error.response.data : error.message
+      );
+      Alert.alert("Error", "Failed to check media content.");
     }
   };
+
   const createPost = async (content, media_url, setLoading) => {
     if (content || media_url) {
       try {
@@ -220,7 +234,6 @@ const useApi = () => {
         );
         console.log(response.data.message);
         Alert.alert("Post Sucessful", response.data.message);
-        router.back();
         return response.data.message;
       } catch (error) {
         console.log(error.response);
@@ -264,6 +277,16 @@ const useApi = () => {
     }
   };
 
+  const uriToBlob = async (uri) => {
+    try {
+      const response = await fetch(uri);
+      const blob = await response.blob();
+      return blob;
+    } catch (error) {
+      console.error("Error converting URI to Blob:", error);
+    }
+  };
+
   return {
     signup,
     login,
@@ -271,8 +294,9 @@ const useApi = () => {
     profile,
     createPost,
     getAllPosts,
-    checkImageForNSFW,
+    checkMediaForNSFW,
     mediaUpload,
+    uriToBlob,
   };
 };
 
