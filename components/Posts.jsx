@@ -7,22 +7,23 @@ import {
   TouchableOpacity,
 } from "react-native";
 import React from "react";
-import { FontAwesome, FontAwesome5, FontAwesome6 } from "@expo/vector-icons";
+import { FontAwesome, FontAwesome5 } from "@expo/vector-icons";
 import { Colors } from "@/constants/Colors";
+import { useVideoPlayer, VideoPlayer, VideoView } from "expo-video";
+
+// Helper function to check media type
+const isImage = (url) => /\.(jpeg|jpg|png|gif|webp)$/i.test(url);
+const isVideo = (url) => /\.(mp4|mov|avi|wmv|flv|mkv|webm)$/i.test(url);
 
 export default function Posts({ data }) {
+  const { media_url } = data;
+  const videoPlayer = useVideoPlayer(media_url, (player) => player.pause());
+
   return (
     <View style={styles.container}>
       <View style={styles.reactContainer}>
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "space-between",
-            width: "100%",
-          }}
-        >
-          <View style={{ flexDirection: "row", alignItems: "center" }}>
+        <View style={styles.header}>
+          <View style={styles.profileContainer}>
             {data?.media_url ? (
               <Image
                 source={require("../assets/images/react-logo.png")}
@@ -37,18 +38,13 @@ export default function Posts({ data }) {
               />
             )}
             <View>
-              <Text style={{ fontWeight: "700" }}>Adamu samuel</Text>
-              <Text>5hrs ago</Text>
+              <Text style={{ fontWeight: "700" }}>
+                {data.firstname} {data.lastname}
+              </Text>
+              <Text>{data.created_at.split("T")[0]}</Text>
             </View>
           </View>
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "space-between",
-              width: 100,
-            }}
-          >
+          <View style={styles.actionButtons}>
             <TouchableOpacity style={styles.followButton}>
               <Text style={{ color: "white" }}>follow</Text>
             </TouchableOpacity>
@@ -58,33 +54,25 @@ export default function Posts({ data }) {
           </View>
         </View>
       </View>
+
       <View style={styles.postContainer}>
         <Text style={styles.postText} numberOfLines={12}>
           {data?.content}
         </Text>
-        <View>
-          <View
-            style={{
-              justifyContent: "flex-end",
-              alignItems: "flex-end",
-            }}
-          >
-            <View style={{ flexDirection: "row", width: 40 }}>
-              <FontAwesome5 name="eye" size={14} />
-              <Text style={{ fontWeight: "400", fontSize: 12, marginLeft: 5 }}>
-                1.5k
-              </Text>
-            </View>
-          </View>
-        </View>
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "space-between",
-            width: "70%",
-          }}
-        >
+
+        {/* ✅ Check if media is an image or video */}
+        {isImage(media_url) ? (
+          <Image source={{ uri: media_url }} style={styles.image} />
+        ) : isVideo(media_url) ? (
+          <VideoView
+            style={styles.media}
+            player={videoPlayer}
+            allowsFullscreen
+            allowsPictureInPicture
+          />
+        ) : null}
+
+        <View style={styles.reactionsContainer}>
           <View style={styles.reactActions}>
             <FontAwesome name="thumbs-up" size={20} color={Colors.light.tint} />
             <Text>5.1k</Text>
@@ -119,14 +107,14 @@ const styles = StyleSheet.create({
     borderBottomWidth: 3,
     borderColor: "rgba(0, 0, 0, 0.1)",
   },
-  title: {
+  postText: {
     fontSize: 15,
-    fontWeight: 800,
+    fontWeight: "600",
     marginBottom: 20,
   },
-  postText: {
-    fontSize: 12,
-    fontWeight: "600",
+  profileContainer: {
+    flexDirection: "row",
+    alignItems: "center",
   },
   profileImage: {
     width: 50,
@@ -137,8 +125,17 @@ const styles = StyleSheet.create({
   reactContainer: {
     padding: 20,
     paddingBottom: 10,
-    // borderBottomWidth: 0.5,
-    // borderColor: "rgba(0, 0, 0, 0.2)",
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    width: "100%",
+  },
+  actionButtons: {
+    flexDirection: "row",
+    alignItems: "center",
+    width: 100,
   },
   followButton: {
     backgroundColor: Colors.light.button,
@@ -150,7 +147,20 @@ const styles = StyleSheet.create({
   reactActions: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
     marginTop: 20,
+  },
+  image: {
+    width: "100%",
+    height: 400,
+  },
+  media: {
+    width: "100%",
+    height: 400,
+  },
+  reactionsContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    width: "70%",
   },
 });

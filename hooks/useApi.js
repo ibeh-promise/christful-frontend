@@ -2,6 +2,8 @@ import axios from "axios";
 import { Alert } from "react-native";
 import { router, useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Cloudinary } from "@cloudinary/url-gen";
+// import { upload } from "@cloudinary/url-gen";
 
 const useApi = () => {
   const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -125,10 +127,96 @@ const useApi = () => {
       console.log(error.response);
     }
   };
-  const post = async (content, media_url, setLoading) => {
+
+  const getAllPosts = async (setLoading, setError) => {
+    try {
+      setLoading(true);
+      const token = await AsyncStorage.getItem("token");
+
+      const response = await axios.get(
+        `https://christful-server.vercel.app/getAllPosts`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      console.log(response.data);
+
+      // Check for invalid token in response
+      if (response.data.message === "Invalid token") {
+        await AsyncStorage.removeItem("token");
+        router.replace("/auth/login"); // Ensure router is passed as a parameter
+        return; // Stop further execution
+      }
+
+      setError(false);
+      return response.data.data ? response.data.data.reverse() : [];
+    } catch (error) {
+      console.log(error.response);
+      setError(true);
+      Alert.alert("Network Error", "Check your network connection");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const checkMediaForNSFW = async (mediaUri, setIsContentSafe, isImage) => {
+    try {
+      let formData = new FormData();
+      // Append media file (Use actual file path, NOT base64)
+      let file = {
+        uri: mediaUri, // Direct URI from image picker
+        name: "image.jpg",
+        type: "image/*",
+      };
+
+      formData.append("media", file);
+      formData.append("models", "nudity-2.1");
+      formData.append("api_user", "1030119388");
+      formData.append("api_secret", "4qfzZfQ6GsFzMsq9NcktWnCovezM2a8t");
+
+      // Make the API request
+      const response = await axios.post(
+        "https://api.sightengine.com/1.0/check.json",
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        }
+      );
+
+      // Handle API response
+      console.log("response of media", response.data);
+      const { nudity } = response.data;
+      if (
+        nudity.sexual_activity > 0.9 ||
+        nudity.suggestive_classes.bikini >= 0.9
+      ) {
+        Alert.alert("Warning", "Your media contains NSFW content.");
+        setIsContentSafe(false);
+        console.log(response.data);
+      } else {
+        Alert.alert("Success", "Media is safe.");
+        setIsContentSafe(true);
+        console.log(response.data);
+      }
+    } catch (error) {
+      console.error(
+        "Error:",
+        error.response ? error.response.data : error.message
+      );
+      Alert.alert("Error", "Failed to check media content.");
+    }
+  };
+
+  const createPost = async (content, media_url, setLoading) => {
     if (content || media_url) {
       try {
         setLoading(true);
+        console.log(media_url);
         const token = await AsyncStorage.getItem("token");
         const response = await axios.post(
           `https://christful-server.vercel.app/post`,
@@ -141,7 +229,6 @@ const useApi = () => {
         );
         console.log(response.data.message);
         Alert.alert("Post Sucessful", response.data.message);
-        router.back();
         return response.data.message;
       } catch (error) {
         console.log(error.response);
@@ -153,76 +240,46 @@ const useApi = () => {
     }
   };
 
-  const getAllPosts = async (setLoading, setError) => {
+  const mediaUpload = async (mediaUri, setMedia_url, setLoading, isImage) => {
     try {
       setLoading(true);
-      const token = await AsyncStorage.getItem("token");
-      const response = await axios.get(
-        `https://christful-server.vercel.app/getAllPosts`,
+      const mediaType = isImage ? "image" : "video";
+      const formData = new FormData();
+      formData.append("file", {
+        uri: mediaUri,
+        name: isImage ? "image.jpg" : "video.mp4",
+        type: isImage ? "image/jpeg" : "video/mp4",
+      });
+      formData.append("upload_preset", "medias");
+
+      const response = await axios.post(
+        `https://api.cloudinary.com/v1_1/dskxvlrhq/${mediaType}/upload`, // Correct endpoint
+        formData,
         {
           headers: {
-            Authorization: `Bearer ${token}`,
+            "Content-Type": "multipart/form-data",
           },
         }
       );
-      console.log(response.data.data);
-      if (response.data.data) setLoading(false);
-      if (response.status == 401) {
-        await AsyncStorage.removeItem("token");
-        await router.replace("/auth/login");
-      }
-      setError(false);
-      return response.data.data;
+
+      console.log("Upload Successful:", response.data);
+      setMedia_url(response.data.url);
+      return response.data.secure_url; // URL of uploaded media
     } catch (error) {
-      console.log(error.response);
-      setError(true);
-      Alert.alert("Network Error", "Check your network connection");
+      console.error("Upload Error:", error.response?.data || error.message);
+      console.error(error);
     } finally {
       setLoading(false);
     }
   };
 
-  const checkImageForNSFW = async (base64Image, setIsContentSafe) => {
+  const uriToBlob = async (uri) => {
     try {
-      // Create FormData object
-      let formData = new FormData();
-
-      // Convert Base64 to Blob (Required for React Native)
-      let blob = {
-        uri: `data:image/jpeg;base64,${base64Image}`,
-        name: "image.jpg",
-        type: "image/jpeg",
-      };
-
-      formData.append("media", blob);
-      formData.append("models", "nudity-2.1");
-      formData.append("api_user", "1030119388");
-      formData.append("api_secret", "4qfzZfQ6GsFzMsq9NcktWnCovezM2a8t");
-
-      const imageResponse = await axios.post(
-        "https://api.sightengine.com/1.0/check.json",
-        formData,
-        {
-          headers: {
-            "Content-Type": "multipart/form-data", // Auto-handled by Axios
-          },
-        }
-      );
-
-      const { nudity } = imageResponse.data;
-      if (nudity.sexual_activity > 0.9) {
-        Alert.alert("Warning", "Your image contains NSFW content.");
-        setIsContentSafe(false);
-        console.log(imageResponse.data);
-      } else {
-        Alert.alert("Success", "Image is safe.");
-        setIsContentSafe(true);
-        console.log(imageResponse.data);
-      }
+      const response = await fetch(uri);
+      const blob = await response.blob();
+      return blob;
     } catch (error) {
-      console.log(error.response ? error.response.data : error.message);
-      console.log(error);
-      Alert.alert("Error", "Failed to check image content.");
+      console.error("Error converting URI to Blob:", error);
     }
   };
 
@@ -231,9 +288,11 @@ const useApi = () => {
     login,
     logout,
     profile,
-    post,
+    createPost,
     getAllPosts,
-    checkImageForNSFW,
+    checkMediaForNSFW,
+    mediaUpload,
+    uriToBlob,
   };
 };
 
