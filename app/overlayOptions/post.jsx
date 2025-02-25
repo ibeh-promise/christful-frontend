@@ -39,7 +39,8 @@ export default function Page() {
       const uploadedMediaUrl = await mediaUpload(
         media_url,
         setMedia_url,
-        setLoading
+        setLoading,
+        image
       );
 
       // Only call createPost if the media upload was successful
@@ -62,7 +63,6 @@ export default function Page() {
       mediaTypes: ["images"],
       allowsEditing: true,
       quality: 1,
-      // base64: true,
     });
 
     console.log(result);
@@ -91,10 +91,10 @@ export default function Page() {
       console.log("blob", blob.data.__collector);
       setVideo(result.assets[0].uri);
       setImage(null);
-      setMedia_url(blob.data.__collector);
+      setMedia_url(result.assets[0].uri);
     }
 
-    await checkMediaForNSFW(result.assets[0].uri, setIsVideoSafe, image);
+    // await checkMediaForNSFW(result.assets[0].uri, setIsVideoSafe, image);
   };
 
   const player = useVideoPlayer(video, (player) => {
@@ -136,9 +136,8 @@ export default function Page() {
           {isImageSafe && (
             <Image source={{ uri: image }} style={styles.media} />
           )}
-        </View>
-        <View style={styles.mediaOverviewContainer}>
-          {isVideoSafe && (
+
+          {video && (
             <VideoView
               style={styles.media}
               player={player}
@@ -189,6 +188,7 @@ const styles = StyleSheet.create({
   },
   mediaOverviewContainer: {
     padding: 20,
+    flexDirection: "row",
   },
   header: {
     flexDirection: "row",
@@ -234,5 +234,6 @@ const styles = StyleSheet.create({
   media: {
     width: 100,
     height: 100,
+    marginHorizontal: 10,
   },
 });

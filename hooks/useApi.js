@@ -165,25 +165,21 @@ const useApi = () => {
   const checkMediaForNSFW = async (mediaUri, setIsContentSafe, isImage) => {
     try {
       let formData = new FormData();
-      const url = isImage
-        ? "https://api.sightengine.com/1.0/video/check-workflow-sync.json"
-        : "https://api.sightengine.com/1.0/check.json";
       // Append media file (Use actual file path, NOT base64)
       let file = {
         uri: mediaUri, // Direct URI from image picker
-        name: isImage ? "image.jpg" : "video.mp4",
-        type: isImage ? "image/jpeg" : "video/mp4",
+        name: "image.jpg",
+        type: "image/*",
       };
 
       formData.append("media", file);
       formData.append("models", "nudity-2.1");
-      !isImage && formData.append("workflow", process.env.EXPO_PUBLIC_WORKFLOW);
       formData.append("api_user", "1030119388");
       formData.append("api_secret", "4qfzZfQ6GsFzMsq9NcktWnCovezM2a8t");
 
       // Make the API request
       const response = await axios.post(
-        "https://api.sightengine.com/1.0/video/check-workflow-sync.json",
+        "https://api.sightengine.com/1.0/check.json",
         formData,
         {
           headers: {
@@ -193,7 +189,6 @@ const useApi = () => {
       );
 
       // Handle API response
-      console.log("response of media", process.env.EXPO_PUBLIC_WORKFLOW);
       console.log("response of media", response.data);
       const { nudity } = response.data;
       if (
@@ -245,20 +240,20 @@ const useApi = () => {
     }
   };
 
-  const mediaUpload = async (media, setMedia_url, setLoading) => {
+  const mediaUpload = async (mediaUri, setMedia_url, setLoading, isImage) => {
     try {
       setLoading(true);
-
+      const mediaType = isImage ? "image" : "video";
       const formData = new FormData();
       formData.append("file", {
-        uri: media,
-        type: "image/jpeg", // Ensure correct MIME type
-        name: "upload.jpg",
+        uri: mediaUri,
+        name: isImage ? "image.jpg" : "video.mp4",
+        type: isImage ? "image/jpeg" : "video/mp4",
       });
       formData.append("upload_preset", "medias");
 
       const response = await axios.post(
-        "https://api.cloudinary.com/v1_1/dskxvlrhq/image/upload", // Correct endpoint
+        `https://api.cloudinary.com/v1_1/dskxvlrhq/${mediaType}/upload`, // Correct endpoint
         formData,
         {
           headers: {
@@ -272,6 +267,7 @@ const useApi = () => {
       return response.data.secure_url; // URL of uploaded media
     } catch (error) {
       console.error("Upload Error:", error.response?.data || error.message);
+      console.error(error);
     } finally {
       setLoading(false);
     }
